@@ -1,0 +1,68 @@
+; A scene is a list of objects.
+; An object is a list consisting of: a surface, the amount of light emitted,
+; the ratio of light Lambertian-reflected, and the ratio of unreflected light
+; let through.
+
+(define scene
+  (list (list (xy 0) 0 0.2 0)
+        (list (sphere 20 8 17 4) 1 0 0)
+        (list (sphere -10 -3 2.3 2) 0 0.2 0)))
+
+(define (step scene x y z dx dy dz)
+  (if (null? scene) #f
+    (let ([this ((car (car scene)) x y z dx dy dz)]
+          [those (step (cdr scene) x y z dx dy dz)])
+      (if (and (pair? this) (or (not (pair? those)) (< (car this) (car those))))
+        (append (cdr this) (cdar scene))
+        those))))
+
+(define (ray x y z dx dy dz)
+  (let ([result (step scene x y z dx dy dz)])
+    (if (not (pair? result)) 0
+      (let ([new-x (car result)]
+            [new-y (cadr result)]
+            [new-z (caddr result)]
+            [out-x (car (cdddr result))]
+            [out-y (cadr (cdddr result))]
+            [out-z (caddr (cdddr result))]
+            [emit  (car (cdddr (cdddr result)))]
+            [refl  (cadr (cdddr (cdddr result)))]
+            [thru  (caddr (cdddr (cdddr result)))])
+        (+ emit
+           (cond [(and (< 0 refl) (< (rand) refl))
+                  (apply ray new-x new-y new-z (lambert out-x out-y out-z))]
+                 [(and (< 0 thru) (< (rand) thru))
+                  (ray new-x new-y new-z dx dy dz)]
+                 [else 0]))))))
+
+(define (for from to body)
+  (if (<= from to)
+    (begin (body from)
+           (for (+ from 1) to body))
+    'done))
+
+(define (for-sum from to body)
+  (if (<= from to)
+    (+ (body from)
+       (for-sum (+ from 1) to body))
+    0))
+
+(define (test min-y steps-y max-y min-z steps-z max-z samples)
+  (begin
+    (display "P2") (newline)
+    (display (+ steps-y 1)) (display " ") (display (+ steps-z 1)) (newline)
+    (display samples) (newline)
+    (for 0 steps-z (lambda (step-z)
+      (begin
+        (for 0 steps-y (lambda (step-y)
+          (begin
+            (display (for-sum 1 samples (lambda (sample)
+                       (ray -20 0 5
+                            1
+                            (+ max-y (* step-y (/ (- min-y max-y) steps-y)))
+                            (+ max-z (* step-z (/ (- min-z max-z) steps-z)))))))
+            (display " "))))
+        (newline))))))
+
+(test -1 200 1 -1 150 0.5 2047)
+;(test -1 200 1 -1 150 0.5 255)

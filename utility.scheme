@@ -1,0 +1,90 @@
+(define (square x)
+  ; The square of x, not to be confused with (sqrt x)
+  (* x x))
+
+(define (square-norm x y z)
+  ; The square of the norm of the vector (x,y,z)
+  (+ (square x) (square y) (square z)))
+
+(define (norm x y z)
+  ; The norm (that is, length) of the vector (x,y,z)
+  (sqrt (square-norm x y z)))
+
+(define (normalize x y z)
+  ; Scale a nonzero vector to a unit vector
+  (let ([n (norm x y z)])
+    (list (/ x n) (/ y n) (/ z n))))
+
+(define (orthogonal x y z)
+  ; Given a nonzero vector, return two other vectors so that the three vectors
+  ; are orthogonal to each other
+  (cond [(and (< (abs x) (abs y)) (< (abs x) (abs z)))
+         (list (list 0 (- z) y)
+               (list (+ (square y) (square z)) (- (* x y)) (- (* x z))))]
+        [(< (abs y) (abs z))
+         (list (list z 0 (- x))
+               (list (- (* x y)) (+ (square x) (square z)) (- (* y z))))]
+        [else
+         (list (list (- y) x 0)
+               (list (- (* x z)) (- (* y z)) (+ (square x) (square y))))]))
+
+(define (to-orthogonal x y z boston berlin latitude)
+  ; Convert local coordinates (boston,berlin,latitude) into some local
+  ; orthonormal coordinate system where up is in the direction of the
+  ; nonzero vector (x,y,z)
+  (let ([orthogonals (orthogonal x y z)])
+    (map + (map (lambda (coord) (* coord latitude))
+                (normalize x y z))
+           (map (lambda (coord) (* coord boston))
+                (apply normalize (car orthogonals)))
+           (map (lambda (coord) (* coord berlin))
+                (apply normalize (cadr orthogonals))))))
+
+(define (uniform-disk-helper)
+  ; Pick a point on the unit disk, with uniform probability, and return
+  ; the squared distance of the point from the origin, followed by the
+  ; two coordinates of the point
+  (let ([sqr-radius (rand)]
+        [theta (* (rand) 2 pi)])
+    (let ([radius (sqrt sqr-radius)])
+      (list sqr-radius
+            (* radius (cos theta))
+            (* radius (sin theta))))))
+
+(define (uniform-disk)
+  ; Pick a point on the unit disk, with uniform probability
+  (cdr (uniform-disk-helper)))
+
+(define (uniform-latitude min-latitude max-latitude)
+  ; Pick a point on the unit sphere between the two given latitudes,
+  ; with uniform probability
+  (let ([latitude (+ min-latitude (* (- max-latitude min-latitude) (rand)))]
+        [from-disk (uniform-disk)])
+    (let ([radius (sqrt (- 1 (square latitude)))])
+      (list (* radius (car from-disk))
+            (* radius (cadr from-disk))
+            latitude))))
+
+(define (uniform-hemisphere)
+  ; Pick a point on the unit hemisphere, with uniform probability
+  (uniform-latitude 0 1))
+
+(define (uniform-sphere)
+  ; Pick a point on the unit sphere, with uniform probability
+  (uniform-latitude -1 1))
+
+(define (cosine-hemisphere)
+  ; Pick a point on the unit sphere, with probability density
+  ; proportional to the latitude
+  (let ([from-disk (uniform-disk-helper)])
+    (list (cadr from-disk)
+          (caddr from-disk)
+          (sqrt (- 1 (car from-disk))))))
+
+(define (lambert x y z)
+  ; Given a vector that is pointing away from and perpendicular to a surface,
+  ; return a vector that points away from the surface, whose direction is
+  ; distributed in proportion to the cosine of the angle between the input and
+  ; output vectors
+  (apply to-orthogonal x y z (cosine-hemisphere)))
+

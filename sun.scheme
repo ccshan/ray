@@ -1,0 +1,18 @@
+(define (correct1)
+  (let ([direction (uniform-sphere)]
+        [offset (uniform-disk)])
+    (append (to-orthogonal (car direction) (cadr direction) (caddr direction)
+              (car offset) (cadr offset) 0)
+            direction)))
+
+(define (correct2)
+  (let ([exit (uniform-sphere)])
+    (append exit (apply lambert exit))))
+
+(define (incorrect)
+  (let ([exit (uniform-sphere)]
+        [direction (uniform-hemisphere)])
+    (append exit
+            (to-orthogonal (car exit) (cadr exit) (caddr exit)
+              (car direction) (cadr direction) (caddr direction)))))
+
